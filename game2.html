@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧩 П'ятнашки</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--tg-theme-secondary-bg-color, #18222d);
+            color: var(--tg-theme-text-color, #ffffff);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            text-align: center;
+            background: var(--tg-theme-bg-color, #212d3b);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            width: min(92vw, 360px);
+        }
+        h2 { margin: 0 0 8px; }
+        #info {
+            margin-bottom: 14px;
+            font-size: 1rem;
+            min-height: 22px;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .tile {
+            aspect-ratio: 1;
+            font-size: 1.4rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            background: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #fff);
+            cursor: pointer;
+        }
+        .tile.empty {
+            background: transparent;
+            cursor: default;
+            visibility: hidden;
+        }
+        .tile:disabled {
+            opacity: 0.7;
+            cursor: default;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background-color: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            margin-top: 8px;
+        }
+        .btn-exit {
+            background: var(--tg-theme-secondary-bg-color, #3a4a5a);
+            color: var(--tg-theme-text-color, #fff);
+        }
+    </style>
+</head>
+<body>
+<div id="game-container">
+    <h2>🧩 П'ятнашки</h2>
+    <div id="info">Ходи: 0</div>
+    <div id="board"></div>
+    <button id="reset-btn" class="btn">Перемішати</button>
+    <button id="exit-btn" class="btn btn-exit">← До меню</button>
+</div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    function exitToChat() {
+        tg.sendData(JSON.stringify({ action: 'reset' }));
+        tg.close();
+    }
+
+    if (tg.BackButton) {
+        tg.BackButton.show();
+        tg.BackButton.onClick(exitToChat);
+    }
+
+    const SIZE = 4;
+    const GOAL = Array.from({ length: SIZE * SIZE - 1 }, (_, i) => i + 1).concat(0);
+
+    let tiles = [];
+    let moves = 0;
+    let solved = false;
+
+    const boardEl = document.getElementById('board');
+    const infoEl = document.getElementById('info');
+    const resetBtn = document.getElementById('reset-btn');
+
+    function indexToRowCol(index) {
+        return [Math.floor(index / SIZE), index % SIZE];
+    }
+
+    function isSolvable(arr) {
+        let inversions = 0;
+        const flat = arr.filter((n) => n !== 0);
+        for (let i = 0; i < flat.length; i++) {
+            for (let j = i + 1; j < flat.length; j++) {
+                if (flat[i] > flat[j]) inversions++;
+            }
+        }
+        const emptyIndex = arr.indexOf(0);
+        const emptyRowFromBottom = SIZE - Math.floor(emptyIndex / SIZE);
+        return (inversions + emptyRowFromBottom) % 2 === 0;
+    }
+
+    function shuffle() {
+        do {
+            tiles = [...GOAL];
+            for (let i = tiles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+            }
+        } while (!isSolvable(tiles) || tiles.every((v, i) => v === GOAL[i]));
+
+        moves = 0;
+        solved = false;
+        render();
+    }
+
+    function canMove(index) {
+        const emptyIndex = tiles.indexOf(0);
+        const [r1, c1] = indexToRowCol(index);
+        const [r2, c2] = indexToRowCol(emptyIndex);
+        return Math.abs(r1 - r2) + Math.abs(c1 - c2) === 1;
+    }
+
+    function move(index) {
+        if (solved || tiles[index] === 0 || !canMove(index)) return;
+
+        const emptyIndex = tiles.indexOf(0);
+        [tiles[index], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[index]];
+        moves++;
+        checkWin();
+        render();
+    }
+
+    function checkWin() {
+        if (tiles.every((v, i) => v === GOAL[i])) {
+            solved = true;
+            infoEl.textContent = `🎉 Зібрано за ${moves} ходів!`;
+            tg.sendData?.(JSON.stringify({ game: 'fifteen', win: true, moves }));
+        } else {
+            infoEl.textContent = `Ходи: ${moves}`;
+        }
+    }
+
+    function render() {
+        boardEl.innerHTML = '';
+        tiles.forEach((value, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'tile' + (value === 0 ? ' empty' : '');
+            btn.textContent = value === 0 ? '' : value;
+            btn.disabled = solved || value === 0 || !canMove(index);
+            btn.addEventListener('click', () => move(index));
+            boardEl.appendChild(btn);
+        });
+    }
+
+    resetBtn.addEventListener('click', shuffle);
+    document.getElementById('exit-btn').addEventListener('click', exitToChat);
+    shuffle();
+</script>
+</body>
+</html>

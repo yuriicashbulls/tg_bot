@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поповнення балансу</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>💳 Сторінка поповнення</h1>
+    <p>Тут буде логіка оплати (USDT, Card тощо)</p>
+    <button id="close-btn">Закрити вкладку</button>
+
+    <script>
+        // Ініціалізуємо Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.ready(); // Повідомляємо Telegram, що додаток завантажився
+
+        // Автоматично підлаштовуємо тему під тему Telegram (темна/світла)
+        tg.expand(); // Розгортаємо вікно на максимум
+
+        function exitToChat() {
+            tg.sendData(JSON.stringify({ action: 'reset' }));
+            tg.close();
+        }
+
+        document.getElementById('close-btn').addEventListener('click', exitToChat);
+
+        if (tg.BackButton) {
+            tg.BackButton.show();
+            tg.BackButton.onClick(exitToChat);
+        }
+    </script>
+</body>
+</html>ʼ

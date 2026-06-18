@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⭕ Хрестики-нолики</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--tg-theme-secondary-bg-color, #18222d);
+            color: var(--tg-theme-text-color, #ffffff);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            text-align: center;
+            background: var(--tg-theme-bg-color, #212d3b);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            width: min(92vw, 360px);
+        }
+        h2 { margin: 0 0 8px; }
+        #status {
+            margin-bottom: 16px;
+            font-size: 1.05rem;
+            min-height: 24px;
+        }
+        #board-wrap {
+            position: relative;
+            margin-bottom: 16px;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        #win-line-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: visible;
+        }
+        #win-line-svg line {
+            stroke: #ffe066;
+            stroke-width: 5;
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 6px rgba(255, 224, 102, 0.9));
+            stroke-dasharray: 300;
+            stroke-dashoffset: 300;
+            animation: draw-line 0.4s ease forwards;
+        }
+        @keyframes draw-line {
+            to { stroke-dashoffset: 0; }
+        }
+        .cell {
+            aspect-ratio: 1;
+            font-size: 2.6rem;
+            font-weight: 800;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            background: var(--tg-theme-secondary-bg-color, #2b3a4a);
+            color: var(--tg-theme-text-color, #fff);
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .cell:disabled {
+            cursor: default;
+        }
+        .cell.x {
+            color: #00e5ff;
+            background: rgba(0, 229, 255, 0.15);
+            border-color: #00e5ff;
+            text-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+        }
+        .cell.o {
+            color: #ff9100;
+            background: rgba(255, 145, 0, 0.15);
+            border-color: #ff9100;
+            text-shadow: 0 0 12px rgba(255, 145, 0, 0.5);
+        }
+        .cell.win-cell {
+            transform: scale(1.04);
+            box-shadow: 0 0 16px rgba(255, 224, 102, 0.45);
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 14px;
+            font-size: 0.95rem;
+        }
+        .legend span {
+            font-weight: 700;
+        }
+        .legend .you { color: #00e5ff; }
+        .legend .bot { color: #ff9100; }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background-color: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            margin-top: 8px;
+        }
+        .btn-exit {
+            background: var(--tg-theme-secondary-bg-color, #3a4a5a);
+            color: var(--tg-theme-text-color, #fff);
+        }
+    </style>
+</head>
+<body>
+<div id="game-container">
+    <h2>⭕ Хрестики-нолики</h2>
+    <div class="legend">
+        <span class="you">Ви: X</span>
+        <span class="bot">Бот: O</span>
+    </div>
+    <div id="status">Ваш хід</div>
+    <div id="board-wrap">
+        <div id="board"></div>
+    </div>
+    <button id="reset-btn" class="btn">Нова гра</button>
+    <button id="exit-btn" class="btn btn-exit">← До меню</button>
+</div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    function exitToChat() {
+        tg.sendData(JSON.stringify({ action: 'reset' }));
+        tg.close();
+    }
+
+    if (tg.BackButton) {
+        tg.BackButton.show();
+        tg.BackButton.onClick(exitToChat);
+    }
+
+    const WIN_LINES = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6],
+    ];
+
+    let board = Array(9).fill(null);
+    let gameOver = false;
+    let winningLine = null;
+
+    const boardWrapEl = document.getElementById('board-wrap');
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const resetBtn = document.getElementById('reset-btn');
+
+    function getWinResult(cells) {
+        for (const line of WIN_LINES) {
+            const [a, b, c] = line;
+            if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) {
+                return { winner: cells[a], line };
+            }
+        }
+        if (cells.every(Boolean)) return { winner: 'draw', line: null };
+        return { winner: null, line: null };
+    }
+
+    function drawWinLine(line) {
+        const oldSvg = document.getElementById('win-line-svg');
+        oldSvg?.remove();
+        if (!line) return;
+
+        requestAnimationFrame(() => {
+            const cells = line.map((i) => boardEl.children[i]);
+            if (cells.length !== 3) return;
+
+            const wrapRect = boardWrapEl.getBoundingClientRect();
+            const start = cells[0].getBoundingClientRect();
+            const end = cells[2].getBoundingClientRect();
+
+            const x1 = start.left + start.width / 2 - wrapRect.left;
+            const y1 = start.top + start.height / 2 - wrapRect.top;
+            const x2 = end.left + end.width / 2 - wrapRect.left;
+            const y2 = end.top + end.height / 2 - wrapRect.top;
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.id = 'win-line-svg';
+            const lineEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            lineEl.setAttribute('x1', x1);
+            lineEl.setAttribute('y1', y1);
+            lineEl.setAttribute('x2', x2);
+            lineEl.setAttribute('y2', y2);
+            svg.appendChild(lineEl);
+            boardWrapEl.appendChild(svg);
+        });
+    }
+
+    function render() {
+        boardEl.innerHTML = '';
+        board.forEach((value, i) => {
+            const btn = document.createElement('button');
+            const isWinCell = winningLine?.includes(i);
+            btn.className = 'cell' +
+                (value ? ` ${value.toLowerCase()}` : '') +
+                (isWinCell ? ' win-cell' : '');
+            btn.textContent = value === 'X' ? 'X' : value === 'O' ? 'O' : '';
+            btn.disabled = gameOver || Boolean(value);
+            btn.addEventListener('click', () => playerMove(i));
+            boardEl.appendChild(btn);
+        });
+        drawWinLine(winningLine);
+    }
+
+    function playerMove(index) {
+        if (gameOver || board[index]) return;
+
+        board[index] = 'X';
+        render();
+        const { winner } = getWinResult(board);
+        if (winner) return endGame(winner);
+
+        statusEl.textContent = 'Хід бота...';
+        setTimeout(botMove, 300);
+    }
+
+    function botMove() {
+        const empty = board.map((v, i) => (v ? null : i)).filter((i) => i !== null);
+        if (!empty.length) return;
+
+        const move = findBestMove();
+        board[move] = 'O';
+        const { winner } = getWinResult(board);
+        if (!winner) statusEl.textContent = 'Ваш хід';
+        endGame(winner);
+    }
+
+    function findBestMove() {
+        for (const i of board.map((v, idx) => (v ? null : idx)).filter((v) => v !== null)) {
+            board[i] = 'O';
+            if (getWinResult(board).winner === 'O') {
+                board[i] = null;
+                return i;
+            }
+            board[i] = null;
+        }
+
+        for (const i of board.map((v, idx) => (v ? null : idx)).filter((v) => v !== null)) {
+            board[i] = 'X';
+            if (getWinResult(board).winner === 'X') {
+                board[i] = null;
+                return i;
+            }
+            board[i] = null;
+        }
+
+        if (board[4] === null) return 4;
+
+        const corners = [0, 2, 6, 8].filter((i) => board[i] === null);
+        if (corners.length) return corners[Math.floor(Math.random() * corners.length)];
+
+        const rest = board.map((v, i) => (v ? null : i)).filter((i) => i !== null);
+        return rest[Math.floor(Math.random() * rest.length)];
+    }
+
+    function endGame(result) {
+        gameOver = Boolean(result);
+        winningLine = result && result !== 'draw' ? getWinResult(board).line : null;
+        render();
+
+        if (result === 'X') {
+            statusEl.textContent = '🎉 Ви виграли!';
+            tg.sendData?.(JSON.stringify({ game: 'tictactoe', win: true }));
+        } else if (result === 'O') {
+            statusEl.textContent = '😢 Бот виграв. Спробуй ще!';
+            tg.sendData?.(JSON.stringify({ game: 'tictactoe', win: false }));
+        } else if (result === 'draw') {
+            statusEl.textContent = '🤝 Нічия!';
+            tg.sendData?.(JSON.stringify({ game: 'tictactoe', win: false, draw: true }));
+        }
+    }
+
+    function resetGame() {
+        board = Array(9).fill(null);
+        gameOver = false;
+        winningLine = null;
+        statusEl.textContent = 'Ваш хід';
+        render();
+    }
+
+    resetBtn.addEventListener('click', resetGame);
+    document.getElementById('exit-btn').addEventListener('click', exitToChat);
+    resetGame();
+</script>
+</body>
+</html>
