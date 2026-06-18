@@ -14,6 +14,7 @@ export default defineConfig({
         deposit: resolve(__dirname, 'deposit.html'),
         game1: resolve(__dirname, 'game1.html'),
         game2: resolve(__dirname, 'game2.html'),
+        piastria: resolve(__dirname, 'piastria.html'),
       },
     },
   },
