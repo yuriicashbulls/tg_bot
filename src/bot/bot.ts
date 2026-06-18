@@ -41,15 +41,13 @@ const mainKeyboard = new InlineKeyboard()
   .text("💰 Баланс", "action_balance")
   .text("🎮 Вибрати гру", "action_games");
 
-const PIASTRIA_GAME_URL = "https://pg-l8pf.onrender.com/";
-
 // Меню ігор
 const gamesKeyboard = new InlineKeyboard()
   .webApp("⭕ Хрестики-нолики", `${WEB_APP_URL}/game1.html`)
   .row()
   .webApp("🧩 П'ятнашки", `${WEB_APP_URL}/game2.html`)
   .row()
-  .webApp("🎮 Piastria", PIASTRIA_GAME_URL)
+  .webApp("🎮 Piastria", `${WEB_APP_URL}/piastria.html`)
   .row()
   .text("⬅️ Назад", "action_back");
 
@@ -183,5 +181,11 @@ async function checkWebAppUrl() {
 
 // Запуск бота
 void checkWebAppUrl();
+void bot.api.setMyCommands([
+  { command: "start", description: "Головне меню" },
+]);
+void bot.api.setChatMenuButton({
+  menu_button: { type: "commands" },
+});
 bot.start();
 console.log("🚀 Telegram бот успішно запущений локально!");

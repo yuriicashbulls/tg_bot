@@ -36,10 +36,9 @@
     <script>
         // Ініціалізуємо Telegram Web App
         const tg = window.Telegram.WebApp;
-        tg.ready(); // Повідомляємо Telegram, що додаток завантажився
-
-        // Автоматично підлаштовуємо тему під тему Telegram (темна/світла)
-        tg.expand(); // Розгортаємо вікно на максимум
+        tg.ready();
+        tg.expand();
+        if (tg.requestFullscreen) tg.requestFullscreen();
 
         function exitToChat() {
             tg.sendData(JSON.stringify({ action: 'reset' }));
