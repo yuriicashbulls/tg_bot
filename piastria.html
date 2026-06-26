@@ -29,6 +29,8 @@
     <iframe id="game-frame" src="https://pg-l8pf.onrender.com/" allowfullscreen></iframe>
     <script>
         const tg = window.Telegram.WebApp;
+        // Було 0.05 (5%) — забагато; трохи опустити гру
+        const EXTRA_TOP_RATIO = 0.02;
 
         tg.ready();
         tg.expand();
@@ -48,8 +50,7 @@
             const h = tg.viewportStableHeight || tg.viewportHeight || window.innerHeight;
             const content = readInset(tg.contentSafeAreaInset);
 
-            // Лише відступ під UI Telegram, без подвоєння safe area та без додаткових %
-            let top = content.top;
+            let top = content.top + Math.round(h * EXTRA_TOP_RATIO);
             let bottom = content.bottom;
 
             const frameHeight = Math.max(0, h - top - bottom);
