@@ -29,8 +29,6 @@
     <iframe id="game-frame" src="https://pg-l8pf.onrender.com/" allowfullscreen></iframe>
     <script>
         const tg = window.Telegram.WebApp;
-        // Додатковий відступ поверх safe area, якщо UI гри трохи вище за рамку Telegram
-        const EXTRA_TOP_RATIO = 0.05;
 
         tg.ready();
         tg.expand();
@@ -48,18 +46,11 @@
 
         function applyViewport() {
             const h = tg.viewportStableHeight || tg.viewportHeight || window.innerHeight;
-            const safe = readInset(tg.safeAreaInset);
             const content = readInset(tg.contentSafeAreaInset);
 
-            let top = safe.top + content.top;
-            let bottom = safe.bottom + content.bottom;
-
-            // Якщо Telegram не віддав insets (браузер / старий клієнт) — невеликий запас
-            if (top === 0 && bottom === 0) {
-                top = Math.round(h * EXTRA_TOP_RATIO);
-            } else if (top > 0) {
-                top += Math.round(h * EXTRA_TOP_RATIO);
-            }
+            // Лише відступ під UI Telegram, без подвоєння safe area та без додаткових %
+            let top = content.top;
+            let bottom = content.bottom;
 
             const frameHeight = Math.max(0, h - top - bottom);
 
