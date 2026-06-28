@@ -12,14 +12,17 @@
             height: var(--app-height, 100dvh);
             overflow: hidden;
             background: #000;
+            overscroll-behavior: none;
         }
         body {
-            padding-top: var(--top-offset, env(safe-area-inset-top, 0px));
-            padding-bottom: var(--bottom-offset, env(safe-area-inset-bottom, 0px));
+            padding-top: var(--inset-top, 0px);
+            padding-bottom: var(--inset-bottom, 0px);
+            padding-left: var(--inset-left, 0px);
+            padding-right: var(--inset-right, 0px);
         }
         #game-frame {
             width: 100%;
-            height: var(--frame-height, 100dvh);
+            height: 100%; 
             border: none;
             display: block;
         }
@@ -29,12 +32,11 @@
     <iframe id="game-frame" src="https://pg-l8pf.onrender.com/" allowfullscreen></iframe>
     <script>
         const tg = window.Telegram.WebApp;
-        // Було 0.05 (5%) — забагато; трохи опустити гру
-        const EXTRA_TOP_RATIO = 0.02;
 
         tg.ready();
         tg.expand();
         if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+        if (tg.setHeaderColor) tg.setHeaderColor('#000000');
         if (tg.requestFullscreen) tg.requestFullscreen();
 
         function readInset(inset) {
@@ -48,23 +50,29 @@
 
         function applyViewport() {
             const h = tg.viewportStableHeight || tg.viewportHeight || window.innerHeight;
+
+            const device  = readInset(tg.safeAreaInset);
             const content = readInset(tg.contentSafeAreaInset);
 
-            let top = content.top + Math.round(h * EXTRA_TOP_RATIO);
-            let bottom = content.bottom;
+            const top    = device.top    + content.top;
+            const bottom = device.bottom + content.bottom;
+            const left   = device.left   + content.left;
+            const right  = device.right  + content.right;
 
-            const frameHeight = Math.max(0, h - top - bottom);
-
-            document.documentElement.style.setProperty('--app-height', h + 'px');
-            document.documentElement.style.setProperty('--top-offset', top + 'px');
-            document.documentElement.style.setProperty('--bottom-offset', bottom + 'px');
-            document.documentElement.style.setProperty('--frame-height', frameHeight + 'px');
+            const root = document.documentElement.style;
+            root.setProperty('--app-height', h + 'px');
+            root.setProperty('--inset-top',    top    + 'px');
+            root.setProperty('--inset-bottom', bottom + 'px');
+            root.setProperty('--inset-left',   left   + 'px');
+            root.setProperty('--inset-right',  right  + 'px');
         }
 
         applyViewport();
+
         tg.onEvent('viewportChanged', applyViewport);
         tg.onEvent('safeAreaChanged', applyViewport);
         tg.onEvent('contentSafeAreaChanged', applyViewport);
+        tg.onEvent('fullscreenChanged', applyViewport);
         window.addEventListener('resize', applyViewport);
     </script>
 </body>
